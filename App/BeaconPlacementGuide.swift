@@ -14,8 +14,8 @@ struct BeaconPlacementGuide: View {
     private let tips = [
         Tip(
             art: "GuideHardware",
-            title: "Pick a beacon",
-            text: "USB beacon: a tiny plug that goes into any USB wall charger, so it never needs a battery.\nBattery beacon: a small puck you can stick anywhere. The battery lasts for years."
+            title: "What goes by the bed",
+            text: "The bedroom hub: a thumbnail-sized board on a small outlet cube that plugs into the wall, so there's no battery to die.\nOr a spare iPad or iPhone running Goodnight Phone, left plugged in."
         ),
         Tip(
             art: "GuideNightstand",
@@ -24,26 +24,21 @@ struct BeaconPlacementGuide: View {
         ),
         Tip(
             art: "GuideUnderBed",
-            title: "USB: plug it in under the bed",
-            text: "Use an outlet behind or under the bed, so unplugging it means crawling under."
+            title: "Plug it in under the bed",
+            text: "Use an outlet behind or under the bed, so unplugging it means crawling under. Leave a little wall space beside the cube for the board."
         ),
         Tip(
             title: "Want it even harder to reach?",
-            text: "Put a childproof cover over the outlet. The signal goes right through it."
-        ),
-        Tip(
-            art: "GuidePuck",
-            title: "Battery: stick it under the bed",
-            text: "Use a Command strip to stick the puck to the wall behind the bed or under the bed frame. There's no cord to pull, and it peels off cleanly when the battery needs changing."
+            text: "Pick an outlet behind the headboard or a heavy dresser. The signal goes right through furniture."
         ),
         Tip(
             art: "GuideFloorPlan",
             title: "Keep it away from the door",
-            text: "Put it on the far side of the room, so the signal stops at the doorway. Then step into the hallway. If Goodnight Phone still says “In the bedroom” after 30 seconds, tap Shorter."
+            text: "Put it on the far side of the room, so the signal is clearly weaker in the doorway. Then stand in the doorway and tap Mark doorway here. If Goodnight Phone still says “In the bedroom” out in the hallway, tap Mark doorway again in Beacon details."
         ),
         Tip(
             title: "Using a spare iPad or iPhone instead?",
-            text: "Leave it plugged in on a dresser with Broadcast on. Then set the boundary standing in the bedroom doorway."
+            text: "Leave it plugged in on a dresser across the room, with Use this device as a bedroom hub turned on. Then mark the doorway the same way."
         ),
     ]
 

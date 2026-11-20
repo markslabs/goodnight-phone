@@ -57,3 +57,14 @@ button.button{border:0;cursor:pointer;font:inherit;font-weight:700}
 .card > :first-child{margin-top:0}
 [hidden]{display:none !important}
 button.button:disabled{opacity:.5;cursor:default}
+
+/* /beacon: the hub's parts, picture first */
+.parts{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;padding:0;margin:28px 0 12px;list-style:none}
+.part{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px 18px 20px;margin:0;display:flex;flex-direction:column}
+.part img{background:#FFF9EC;border-radius:12px;width:100%;margin-bottom:14px}
+.part h2{font-size:1.3rem;margin:0 0 .2rem}
+.part .price{font-family:"Fraunces Soft",Georgia,serif;font-weight:600;font-size:1.5rem;color:var(--green);margin:0 0 .4rem}
+.part p{margin-bottom:.8rem}
+.part a{margin-top:auto;font-weight:700}
+@media (max-width:720px){.parts{grid-template-columns:1fr;gap:14px}.part{display:grid;grid-template-columns:96px 1fr;column-gap:14px;align-items:start}.part img{grid-row:1 / span 4;margin:0}.part a{margin-top:0}}
+.steps.then li::before{display:grid}

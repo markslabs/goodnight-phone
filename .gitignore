@@ -13,3 +13,4 @@ build/
 # Generated before the rename from Lights Out
 LightsOut.xcodeproj/
 .lightsout.env
+__pycache__/
