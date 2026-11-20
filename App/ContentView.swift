@@ -884,17 +884,21 @@ private struct BeaconEditor: View {
                         )
                     }
 
-                    NavigationLink {
-                        BlueCharmSetupView { pairing in
-                            onSetUpBlueCharm(pairing)
-                            dismiss()
+                    // Blue Charm is no longer recommended: only someone who already set one up
+                    // here sees it, so they can set it up again (say, after a reset).
+                    if Shared.blueCharm != nil {
+                        NavigationLink {
+                            BlueCharmSetupView { pairing in
+                                onSetUpBlueCharm(pairing)
+                                dismiss()
+                            }
+                        } label: {
+                            DeviceRow(
+                                "Blue Charm beacon",
+                                detail: "The one you set up before.",
+                                systemImage: "antenna.radiowaves.left.and.right"
+                            )
                         }
-                    } label: {
-                        DeviceRow(
-                            "Blue Charm beacon",
-                            detail: "A USB stick (BC-U1) or a round puck (BC05).",
-                            systemImage: "antenna.radiowaves.left.and.right"
-                        )
                     }
 
                     NavigationLink {
@@ -1186,19 +1190,7 @@ private struct NoBeaconView: View {
             } header: {
                 BrandHeader("We recommend: Seeed XIAO board")
             } footer: {
-                Text("Needs a one-time install from a Mac or PC, about a minute.")
-            }
-            .brandRow()
-
-            Section {
-                Text("A USB stick that plugs into any USB charger. Goodnight Phone sets it up itself, but it's less precise: iOS decides when you've left, which can take a minute or more.")
-                Link(destination: AppLinks.buyBlueCharm) {
-                    Label("Get a Blue Charm on Amazon (about $19)", systemImage: "cart")
-                }
-            } header: {
-                BrandHeader("No computer? Blue Charm BC-U1")
-            } footer: {
-                Text(AppLinks.amazonDisclosure)
+                Text("Needs a one-time install from a Mac or PC, about a minute. \(AppLinks.amazonDisclosure)")
             }
             .brandRow()
 
