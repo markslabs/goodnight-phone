@@ -45,6 +45,7 @@ struct ContentView: View {
                 .navigationDestination(for: Screen.self) { screen in
                     switch screen {
                     case .setup: setupScreen
+                    case .beaconDetails: beaconDetailsScreen
                     }
                 }
         }
@@ -136,8 +137,8 @@ struct ContentView: View {
     private var setupScreen: some View {
         Form {
             if !setupDone { setupSection }
-            beaconSection
-            standInSection
+            bedroomCardSection
+            bedroomLinksSection
             moreSection
         }
         .navigationTitle("Setup")
@@ -173,24 +174,6 @@ struct ContentView: View {
                 enabled: model.screenTimeApproved
             ) { openPicker() }
 
-            SetupRow(
-                title: "Bedroom beacon",
-                detail: model.beacon?.displayName ?? "Not set",
-                done: model.beacon != nil,
-                button: "Add"
-            ) { editingBeacon = true }
-
-            if usesStandIn {
-                SetupRow(
-                    title: "Bedroom boundary",
-                    detail: hub.isListening
-                        ? (hub.isCalibrating ? "Measuring…" : "Stand at the bedroom door, then tap Set")
-                        : hub.linkLabel,
-                    done: hub.boundary != nil,
-                    button: "Set",
-                    enabled: hub.isListening && !hub.isCalibrating
-                ) { hub.calibrate() }
-            }
         } header: {
             BrandHeader("Checklist")
         } footer: {
@@ -271,60 +254,126 @@ struct ContentView: View {
         .disabled(model.isLocked)
     }
 
-    private var beaconSection: some View {
+    /// The bedroom beacon at a glance: what's missing during setup, then in or out of the room,
+    /// with the hub's signal drawn against the doorway. The numbers live in Beacon details.
+    private var bedroomCardSection: some View {
         Section {
-            if let beacon = model.beacon {
-                LabeledContent("Beacon", value: beacon.displayName)
-                LabeledContent("Status", value: model.inRoom ? "In the bedroom" : "Outside")
-                if beacon.isStandIn {
-                    LabeledContent("Connection", value: hub.linkLabel)
-                    LabeledContent("Signal") {
-                        HStack(spacing: 6) {
-                            Text(hub.rssi.map { "\($0) dBm" } ?? "—")
-                            Image(systemName: "cellularbars", variableValue: hub.strength)
-                        }
-                    }
-                    LabeledContent("Boundary", value: hub.boundary.map { "\($0) dBm" } ?? "Not set")
-                    Button(hub.isCalibrating ? "Measuring…" : "Set boundary here") { hub.calibrate() }
-                        .disabled(model.isLocked || !hub.isListening || hub.isCalibrating)
-                } else if let pairing = model.blueCharm {
-                    // A Blue Charm's signal comes straight from its Bluetooth advertising.
-                    LabeledContent("Signal") {
-                        HStack(spacing: 6) {
-                            Text(blueCharm.signalRSSI.map { "\($0) dBm" } ?? "Not detected")
-                            Image(systemName: "cellularbars", variableValue: BeaconSignal.strength(rssi: blueCharm.signalRSSI))
-                        }
-                    }
-                    BlueCharmRange(pairing: pairing)
-                } else {
-                    LabeledContent("Signal") {
-                        HStack(spacing: 6) {
-                            Text(signal.label)
-                            Image(systemName: "cellularbars", variableValue: signal.strength)
-                        }
-                    }
-                }
-            }
-            Button(model.beacon == nil ? "Add beacon…" : "Change beacon…") { editingBeacon = true }
-                .disabled(model.isLocked)
+            BedroomCard(
+                beacon: model.beacon,
+                inRoom: model.inRoom,
+                isBlocking: model.isBlocking,
+                isLocked: model.isLocked,
+                linkLabel: hub.linkLabel,
+                isListening: hub.isListening,
+                isCalibrating: hub.isCalibrating,
+                rssi: hub.rssi,
+                boundary: hub.boundary,
+                addBeacon: { editingBeacon = true },
+                markDoorway: { hub.calibrate() }
+            )
+        } header: {
+            BrandHeader("Bedroom beacon")
+        }
+        .listRowInsets(EdgeInsets())
+        .listRowBackground(Color.clear)
+    }
+
+    private var bedroomLinksSection: some View {
+        Section {
             // Read-only, so it stays open while apps are blocked.
             NavigationLink { BeaconPlacementGuide() } label: {
                 Label("Where to put the beacon", systemImage: "lightbulb")
             }
-        } header: {
-            BrandHeader("Bedroom beacon")
+            if model.beacon == nil {
+                Link(destination: AppLinks.chooseHub) {
+                    Label("Get a hub kit (about $36)", systemImage: "cart")
+                }
+            } else if usesStandIn && hub.boundary == nil {
+                Button("Use a different beacon…") { editingBeacon = true }
+                    .disabled(model.isLocked)
+            } else {
+                NavigationLink(value: Screen.beaconDetails) {
+                    Label("Beacon details", systemImage: "slider.horizontal.3")
+                }
+            }
         } footer: {
-            Text(usesStandIn
-                 ? "Stronger than the boundary counts as in the bedroom. Set it standing in the bedroom doorway, not next to the spare device; anywhere weaker, like the kitchen, counts as outside. During bedtime hours, walking in registers within about 10 seconds and leaving within about 15, even with the app closed, so a weak moment by the bed doesn't lift the block."
-                 : model.blueCharm != nil
-                 ? "Signal is live while the app is open. Blocking follows Status, and iOS takes about 30 seconds to register that you've left. If it still says “In the bedroom” after you step out of the room, tap Shorter; if it says “Outside” by the bed, tap Longer. For 15 minutes after setup these work even while apps are blocked."
-                 : "Signal is live while the app is open. Blocking follows Status, and iOS takes about 30 seconds to register that you've left. If it still says “In the bedroom” after you step out of the room, turn the beacon's transmit power down.")
+            if model.beacon == nil {
+                Text("Have a spare iPad or iPhone? It can be your hub for free: tap Add a beacon, then Spare iPad or iPhone.")
+            } else if usesStandIn && hub.boundary == nil {
+                Text("Stand right in the bedroom doorway, not by the bed. It takes a few seconds, and you can redo it later in Beacon details.")
+            } else if model.isLocked {
+                Text("Locked while you're in the bedroom. Leave the room to make changes.")
+            }
         }
         .brandRow()
     }
 
-    /// Shown at the top while this device is the stand-in beacon. Kept separate from
-    /// standInSection so the NavigationLink never moves (moving it would pop its screen).
+    /// Everything technical about the beacon: connection, signal, the doorway mark, range.
+    private var beaconDetailsScreen: some View {
+        Form {
+            Section {
+                if let beacon = model.beacon {
+                    LabeledContent("Beacon", value: beacon.displayName)
+                    if beacon.isStandIn {
+                        LabeledContent("Connection", value: hub.linkLabel)
+                        LabeledContent("Signal") {
+                            HStack(spacing: 6) {
+                                Text(hub.rssi.map { "\($0) dBm" } ?? "—")
+                                Image(systemName: "cellularbars", variableValue: hub.strength)
+                            }
+                        }
+                        LabeledContent("Doorway mark", value: hub.boundary.map { "\($0) dBm" } ?? "Not set")
+                    } else if let pairing = model.blueCharm {
+                        // A Blue Charm's signal comes straight from its Bluetooth advertising.
+                        LabeledContent("Signal") {
+                            HStack(spacing: 6) {
+                                Text(blueCharm.signalRSSI.map { "\($0) dBm" } ?? "Not detected")
+                                Image(systemName: "cellularbars", variableValue: BeaconSignal.strength(rssi: blueCharm.signalRSSI))
+                            }
+                        }
+                        BlueCharmRange(pairing: pairing)
+                    } else {
+                        LabeledContent("Signal") {
+                            HStack(spacing: 6) {
+                                Text(signal.label)
+                                Image(systemName: "cellularbars", variableValue: signal.strength)
+                            }
+                        }
+                    }
+                }
+            } header: {
+                BrandHeader("Bedroom beacon")
+            } footer: {
+                Text(usesStandIn
+                     ? "Stronger than the doorway mark counts as in the bedroom. During bedtime hours, walking in registers within about 10 seconds and leaving within about 15, even with the app closed."
+                     : model.blueCharm != nil
+                     ? "Signal is live while the app is open. iOS takes about 30 seconds to register that you've left. If it still says “In the bedroom” after you step out of the room, tap Shorter; if it says “Outside” by the bed, tap Longer. For 15 minutes after setup these work even while apps are blocked."
+                     : "Signal is live while the app is open. iOS takes about 30 seconds to register that you've left. If it still says “In the bedroom” after you step out of the room, turn the beacon's transmit power down.")
+            }
+            .brandRow()
+
+            Section {
+                if usesStandIn {
+                    Button(hub.isCalibrating ? "Measuring…" : "Mark doorway again") { hub.calibrate() }
+                        .disabled(model.isLocked || !hub.isListening || hub.isCalibrating)
+                }
+                Button("Change beacon…") { editingBeacon = true }
+                    .disabled(model.isLocked)
+            } footer: {
+                if usesStandIn {
+                    Text("To mark the doorway again, stand right in the bedroom doorway, not by the bed.")
+                }
+            }
+            .brandRow()
+        }
+        .navigationTitle("Beacon details")
+        .navigationBarTitleDisplayMode(.inline)
+        .brandForm()
+        .readableWidth()
+    }
+
+    /// Shown at the top while this device is the stand-in beacon. Its settings link stays put
+    /// in More on the Setup screen (moving a NavigationLink would pop its screen).
     private var broadcastingSection: some View {
         Section {
             LabeledContent {
@@ -338,26 +387,18 @@ struct ContentView: View {
         .brandRow()
     }
 
-    private var standInSection: some View {
-        Section {
-            NavigationLink { StandInBeaconView() } label: {
-                LabeledContent("Broadcast as bedroom beacon", value: broadcaster.label)
-            }
-        } header: {
-            // Once this phone has a beacon, "No beacon yet?" reads as if setup isn't finished.
-            BrandHeader(model.beacon == nil ? "No beacon yet?" : "Spare iPad or iPhone")
-        } footer: {
-            Text(model.beacon == nil
-                 ? "Turn this on in Goodnight Phone on a spare iPad or iPhone to stand in for the beacon while you test."
-                 : "Only for a spare device that stays by the bed as the bedroom hub. Your bedroom beacon is set up above.")
-        }
-        .brandRow()
-    }
-
     private var moreSection: some View {
         Section {
             NavigationLink { ActivityView() } label: {
                 Label("Activity", systemImage: "clock.arrow.circlepath")
+            }
+            // Only for a spare device that stays by the bed, so it lives down here.
+            NavigationLink { StandInBeaconView() } label: {
+                LabeledContent {
+                    Text(broadcaster.label)
+                } label: {
+                    Label("Use this device as a bedroom hub", systemImage: "dot.radiowaves.left.and.right")
+                }
             }
             Link(destination: AppLinks.privacyPolicy) {
                 Label("Privacy policy", systemImage: "hand.raised")
@@ -423,6 +464,7 @@ struct ContentView: View {
 /// Screens pushed from the main screen.
 private enum Screen: Hashable {
     case setup
+    case beaconDetails
 }
 
 // MARK: - Activity
@@ -543,6 +585,198 @@ private struct StatusCard: View {
         if isBlocking { return Color(red: 0xF2 / 255, green: 0xC8 / 255, blue: 0x49 / 255) }
         if setupDone && !inRoom { return Color(red: 0xC2 / 255, green: 0x3B / 255, blue: 0x2E / 255) }
         return textColor
+    }
+}
+
+// MARK: - Bedroom card
+
+/// The Setup screen's night-window card. During setup it asks for the one thing missing (a
+/// beacon, then the doorway mark); afterwards it says in or out of the bedroom, and for a hub
+/// or spare device draws you and the doorway on a line from far away to the bed.
+private struct BedroomCard: View {
+    let beacon: BeaconConfig?
+    let inRoom: Bool
+    let isBlocking: Bool
+    let isLocked: Bool
+    let linkLabel: String
+    let isListening: Bool
+    let isCalibrating: Bool
+    let rssi: Int?
+    let boundary: Int?
+    let addBeacon: () -> Void
+    let markDoorway: () -> Void
+
+    private var isStandIn: Bool { beacon?.isStandIn == true }
+    private var needsDoorway: Bool { isStandIn && boundary == nil }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if beacon == nil || needsDoorway { stepDots }
+            HStack(alignment: .top) {
+                Text(title)
+                    .font(Brand.heading(25))
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 12)
+                Image(systemName: "moon.fill")
+                    .font(.system(size: 26))
+                    .foregroundStyle(Brand.yellow)
+            }
+            subtitleView
+            if isStandIn {
+                DoorwayMeter(rssi: rssi, boundary: boundary)
+                    .padding(.top, 14)
+            }
+            if beacon == nil {
+                Button("Add a beacon", action: addBeacon)
+                    .buttonStyle(MoonButtonStyle())
+                    .padding(.top, 12)
+            } else if needsDoorway {
+                Button(isCalibrating ? "Measuring…" : "Mark doorway here", action: markDoorway)
+                    .buttonStyle(MoonButtonStyle())
+                    .disabled(isLocked || !isListening || isCalibrating)
+                    .padding(.top, 12)
+            }
+        }
+        .foregroundStyle(Brand.cream)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(20)
+        .background(Brand.night, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Brand.fixedInk, lineWidth: 2.5))
+        // A solid offset shadow, like ink on a printed page (matches the main screen's card).
+        .background(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(Brand.fixedInk)
+                .offset(x: 4, y: 4)
+        )
+        .padding(.trailing, 4)
+        .padding(.bottom, 4)
+        .animation(.easeInOut, value: inRoom)
+        .animation(.easeInOut, value: boundary)
+    }
+
+    /// Two short bars: beacon, then doorway.
+    private var stepDots: some View {
+        HStack(spacing: 6) {
+            Capsule().fill(Brand.yellow).frame(width: 22, height: 4)
+            Capsule().fill(beacon == nil ? Brand.cream.opacity(0.25) : Brand.yellow).frame(width: 22, height: 4)
+        }
+        .padding(.bottom, 4)
+        .accessibilityElement()
+        .accessibilityLabel(beacon == nil ? "Step 1 of 2" : "Step 2 of 2")
+    }
+
+    private var title: String {
+        if beacon == nil { return "Add your bedroom beacon" }
+        if needsDoorway { return "Walk to your doorway" }
+        return inRoom ? "In the bedroom" : "Outside the bedroom"
+    }
+
+    @ViewBuilder private var subtitleView: some View {
+        let font = Font.system(.subheadline, design: .rounded).weight(.semibold)
+        if beacon == nil {
+            Text("A small Bluetooth hub or beacon by your bed tells your phone when you're in the bedroom.")
+                .font(font).opacity(0.85)
+                .fixedSize(horizontal: false, vertical: true)
+        } else if needsDoorway {
+            Text(isListening ? "Bedroom hub found. Watch the dot move as you walk." : linkLabel)
+                .font(font).opacity(0.85)
+        } else if isBlocking {
+            Text("Apps asleep until you leave the room.")
+                .font(font).opacity(0.85)
+        } else if isStandIn {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(isListening ? Color(red: 0x7F / 255, green: 0xCF / 255, blue: 0x95 / 255) : Brand.yellow)
+                    .frame(width: 8, height: 8)
+                Text(isListening ? "Bedroom hub is working" : linkLabel)
+            }
+            .font(font).opacity(0.85)
+        } else if let beacon {
+            Text(beacon.displayName)
+                .font(font).opacity(0.85)
+        }
+    }
+}
+
+/// A line from far away to the bed, with the doorway mark (once set) and a dot for where the
+/// hub's signal puts you. Display only; the in/out decision is RoomPresenceStateMachine's.
+private struct DoorwayMeter: View {
+    let rssi: Int?
+    let boundary: Int?
+
+    /// Signal range drawn end to end, in dBm.
+    private static let far = -100.0
+    private static let near = -45.0
+
+    private static func position(_ dBm: Int) -> Double {
+        min(max((Double(dBm) - far) / (near - far), 0.03), 0.97)
+    }
+
+    private let green = Color(red: 0x5B / 255, green: 0x8C / 255, blue: 0x69 / 255)
+    private let track = Color(red: 0x3A / 255, green: 0x4A / 255, blue: 0x68 / 255)
+
+    var body: some View {
+        VStack(spacing: 4) {
+            GeometryReader { geo in
+                let width = geo.size.width
+                ZStack(alignment: .leading) {
+                    Capsule().fill(track).frame(height: 10)
+                    if let boundary {
+                        let x = width * Self.position(boundary)
+                        Capsule().fill(green)
+                            .frame(width: width - x, height: 10)
+                            .offset(x: x)
+                        Rectangle().fill(Brand.yellow)
+                            .frame(width: 2, height: 36)
+                            .offset(x: x - 1)
+                        Text("doorway")
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            .foregroundStyle(Brand.yellow)
+                            .fixedSize()
+                            .position(x: x, y: 44)
+                    }
+                    if let rssi {
+                        Circle()
+                            .fill(Brand.cream)
+                            .overlay(Circle().strokeBorder(Brand.yellow, lineWidth: 3))
+                            .frame(width: 22, height: 22)
+                            .offset(x: width * Self.position(rssi) - 11)
+                            .animation(.easeInOut(duration: 0.6), value: rssi)
+                    }
+                }
+                .frame(height: 36)
+            }
+            .frame(height: boundary == nil ? 36 : 52)
+            HStack {
+                Text("Farther away")
+                Spacer()
+                Text("By the bed")
+            }
+            .font(.system(size: 11, design: .rounded))
+            .opacity(0.7)
+        }
+        .accessibilityElement()
+        .accessibilityLabel(accessibilityText)
+    }
+
+    private var accessibilityText: String {
+        guard let rssi else { return "No signal from the bedroom hub" }
+        guard let boundary else { return "Signal \(rssi) dBm" }
+        return rssi >= boundary ? "Past the doorway mark" : "Short of the doorway mark"
+    }
+}
+
+/// Moon-yellow button on the night card.
+private struct MoonButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(.headline, design: .rounded).weight(.bold))
+            .foregroundStyle(Brand.night)
+            .frame(maxWidth: .infinity, minHeight: 48)
+            .background(Brand.yellow, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .opacity(isEnabled ? (configuration.isPressed ? 0.8 : 1) : 0.45)
     }
 }
 
@@ -743,7 +977,7 @@ private struct HubSetupView: View {
                 } header: {
                     BrandHeader("Found your board")
                 } footer: {
-                    Text("If it's still plugged into the computer, move it to a charger by your bed first. After you tap Use this board, stand in the bedroom doorway and tap Set boundary here.")
+                    Text("If it's still plugged into the computer, move it to a charger by your bed first. After you tap Use this board, stand in the bedroom doorway and tap Mark doorway here.")
                 }
                 .brandRow()
             }
@@ -785,7 +1019,7 @@ private struct HubSetupView: View {
             } header: {
                 BrandHeader("3. Plug it in by the bed")
             } footer: {
-                Text("Put it on the far side of the bed from the door. Your iPhone finds it on its own once it's installed and plugged in. Then tap Use this board, stand in the bedroom doorway and tap Set boundary here.")
+                Text("Put it on the far side of the bed from the door. Your iPhone finds it on its own once it's installed and plugged in. Then tap Use this board, stand in the bedroom doorway and tap Mark doorway here.")
             }
             .brandRow()
         }
@@ -908,7 +1142,7 @@ private struct SpareDeviceSetupView: View {
     var body: some View {
         Form {
             Section {
-                Text("Install Goodnight Phone on it, open it, tap Broadcast as bedroom beacon and turn it on.")
+                Text("Install Goodnight Phone on it, open Setup, tap Use this device as a bedroom hub and turn it on.")
             } header: {
                 BrandHeader("1. On the spare device")
             } footer: {
@@ -923,7 +1157,7 @@ private struct SpareDeviceSetupView: View {
             } header: {
                 BrandHeader("2. On this iPhone")
             } footer: {
-                Text("Then stand in the bedroom doorway and tap Set boundary here.")
+                Text("Then stand in the bedroom doorway and tap Mark doorway here.")
             }
             .brandRow()
         }
@@ -1271,7 +1505,7 @@ private struct StandInBeaconView: View {
                 ))
                 LabeledContent("Status", value: broadcaster.label)
             } footer: {
-                Text("Leave Goodnight Phone open with the device plugged in by the bed. iOS only keeps this running while the app is on screen, so the display stays on while this is on. On your iPhone, open the bedroom beacon settings, tap Add beacon… (or Change beacon…), then Spare iPad or iPhone, then Use the spare device, then set the bedroom boundary.")
+                Text("Leave Goodnight Phone open with the device plugged in by the bed. iOS only keeps this running while the app is on screen, so the display stays on while this is on. On your iPhone, open Setup, tap Add a beacon (or Beacon details, then Change beacon…), then Spare iPad or iPhone, then Use the spare device, then mark the doorway.")
             }
             .brandRow()
         }
