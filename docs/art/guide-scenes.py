@@ -4,9 +4,9 @@ Each scene is a 390x470 SVG rendered at 3x (1170x1410) into App/Assets.xcassets/
 Render: python3 docs/art/guide-scenes.py <out-dir>, then screenshot each SVG at 1170x1410
 (Playwright: page.setContent(svg); page.screenshot(clip=...)).
 
-Hardware is drawn to match the real Blue Charm beacons: the BC-U1 is a tiny black USB nub
-(smaller than a US quarter) that disappears into a USB wall charger; the BC05 is a white puck
-about two inches across with a square QR label on top.
+Hardware is drawn to match the recommended bedroom hub: a thumbnail-sized Seeed XIAO ESP32-C6
+board (dark blue, silver shield) on a short USB-C adapter, lying flat out of the side port of a
+white outlet cube that plugs straight into the wall. The other option is a spare iPad or iPhone.
 """
 import pathlib
 import sys
@@ -45,24 +45,6 @@ def phone(x, y, s=1.0, mood="sleep", legs=True):
             f'<circle cx="25" cy="76" r="4.5" fill="{BLUSH}"/><circle cx="61" cy="76" r="4.5" fill="{BLUSH}"/>{face}</g>')
 
 
-def nub(x, y, s=1.0, loose=False):
-    """The BC-U1: a black cap; loose shows its silver USB plug below it. (x, y) is the cap's center."""
-    plug = (f'<rect x="-9" y="7" width="18" height="24" rx="1.5" fill="{METAL}" stroke="{INK}" stroke-width="2"/>'
-            f'<rect x="-5.5" y="12" width="3.5" height="3.5" fill="{INK}"/><rect x="2" y="12" width="3.5" height="3.5" fill="{INK}"/>'
-            ) if loose else ""
-    return (f'<g transform="translate({x},{y}) scale({s})">{plug}'
-            f'<rect x="-11" y="-9" width="22" height="18" rx="3.5" fill="{NUB}" stroke="{INK}" stroke-width="2.5"/>'
-            f'<path d="M-7,-5 h8" stroke="#4A524D" stroke-width="2" stroke-linecap="round"/></g>')
-
-
-def charger(x, y, s=1.0, with_nub=True):
-    """A white USB wall charger, front view, with the BC-U1 in its bottom port. (x, y) is the brick's center."""
-    n = nub(0, 29, 0.9) if with_nub else f'<rect x="-8" y="21" width="16" height="4" rx="1" fill="{INK}"/>'
-    return (f'<g transform="translate({x},{y}) scale({s})">'
-            f'<rect x="-21" y="-23" width="42" height="46" rx="9" fill="{WHITE}" stroke="{INK}" stroke-width="{SW}"/>'
-            f'<path d="M-12,-12 h24" stroke="#D9D3C6" stroke-width="2" stroke-linecap="round"/>{n}</g>')
-
-
 def outlet(x, y, w=26, h=34):
     return (f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="4" fill="{CREAM}" stroke="{INK}" stroke-width="2.5"/>'
             f'<rect x="{x + w/2 - 5}" y="{y + h*0.26}" width="2.5" height="{h*0.2}" fill="{INK}"/>'
@@ -89,19 +71,34 @@ def hub(x, y, s=1.0):
             f'<circle cx="42.5" cy="-8" r="1.6" fill="{Y}"/><circle cx="42.5" cy="8" r="1.6" fill="{Y}"/></g>')
 
 
-def puck(x, y, r=17):
-    """The BC05: white puck, square QR label, twist notch near the bottom edge."""
-    q = r * 0.62
-    cells = "".join(
-        f'<rect x="{x - q/2 + q*fx:.1f}" y="{y - q/2 - r*0.08 + q*fy:.1f}" width="{q*0.26:.1f}" height="{q*0.26:.1f}" fill="{INK}"/>'
-        for fx, fy in [(0.06, 0.06), (0.68, 0.06), (0.06, 0.68)])
-    bits = "".join(
-        f'<rect x="{x - q/2 + q*fx:.1f}" y="{y - q/2 - r*0.08 + q*fy:.1f}" width="{q*0.12:.1f}" height="{q*0.12:.1f}" fill="{INK}"/>'
-        for fx, fy in [(0.45, 0.2), (0.45, 0.48), (0.7, 0.55), (0.8, 0.78), (0.5, 0.8), (0.3, 0.45)]) if r > 30 else ""
-    return (f'<circle cx="{x}" cy="{y}" r="{r}" fill="{WHITE}" stroke="{INK}" stroke-width="{SW}"/>'
-            f'<rect x="{x - q/2:.1f}" y="{y - q/2 - r*0.08:.1f}" width="{q:.1f}" height="{q:.1f}" rx="{r*0.04:.1f}" fill="#FFFFFF" stroke="#CFC8BA" stroke-width="1.2"/>'
-            f'{cells}{bits}'
-            f'<path d="M{x - r*0.45:.1f},{y + r*0.72:.1f} q{r*0.45:.1f},{-r*0.16:.1f} {r*0.9:.1f},0" fill="none" stroke="#CFC8BA" stroke-width="{max(1.2, r*0.04):.1f}" stroke-linecap="round"/>')
+def board(x, y, s=1.0):
+    """The XIAO ESP32-C6 on its own, face up: dark blue board, silver shield, USB-C port on the
+    left edge, two tiny buttons. (x, y) is its center; about 21x17.5 mm, drawn 60x50 at s=1."""
+    return (f'<g transform="translate({x},{y}) scale({s})">'
+            f'<rect x="-36" y="-9" width="10" height="18" rx="3" fill="{METAL}" stroke="{INK}" stroke-width="2"/>'
+            f'<rect x="-30" y="-25" width="60" height="50" rx="5" fill="{NIGHT}" stroke="{INK}" stroke-width="2.5"/>'
+            f'<rect x="-10" y="-16" width="32" height="32" rx="3" fill="{METAL}" stroke="{INK}" stroke-width="2"/>'
+            f'<circle cx="-21" cy="-15" r="3" fill="{Y}"/><circle cx="-21" cy="15" r="3" fill="{Y}"/></g>')
+
+
+def adapter(x, y, s=1.0):
+    """The straight USB-C male-to-male adapter. (x, y) is its center."""
+    return (f'<g transform="translate({x},{y}) scale({s})">'
+            f'<rect x="-22" y="-7" width="13" height="14" rx="3" fill="{METAL}" stroke="{INK}" stroke-width="2"/>'
+            f'<rect x="9" y="-7" width="13" height="14" rx="3" fill="{METAL}" stroke="{INK}" stroke-width="2"/>'
+            f'<rect x="-11" y="-11" width="22" height="22" rx="4" fill="{NUB}" stroke="{INK}" stroke-width="2.5"/></g>')
+
+
+def tablet(x, y, s=1.0):
+    """A spare iPad standing on a little stand, screen on, cord running off. (x, y) is its center."""
+    return (f'<g transform="translate({x},{y}) scale({s})">'
+            f'<path d="M0,64 q0,26 40,26 h40" fill="none" stroke="{INK}" stroke-width="8" stroke-linecap="round"/>'
+            f'<path d="M0,64 q0,26 40,26 h40" fill="none" stroke="{WHITE}" stroke-width="3.5" stroke-linecap="round"/>'
+            f'<rect x="-50" y="-66" width="100" height="132" rx="12" fill="{NIGHT}" stroke="{INK}" stroke-width="{SW}"/>'
+            f'<rect x="-41" y="-57" width="82" height="114" rx="5" fill="{CREAM}"/>'
+            + "".join(f'<circle cx="0" cy="0" r="{r}" fill="none" stroke="{Y}" stroke-width="5" stroke-opacity="{op}" '
+                      f'stroke-dasharray="{d}" stroke-linecap="round"/>' for r, op, d in [(14, 1, "14 8"), (28, 0.6, "20 10")])
+            + f'<circle cx="0" cy="0" r="5" fill="{Y}"/></g>')
 
 
 def coin(x, y, r):
@@ -148,46 +145,40 @@ def under_bed(content):
 
 
 def scene_hardware():
-    """What the two beacons look like, next to a quarter: the USB nub going into a charger, and the puck."""
+    """What goes by the bed: the hub's two small parts going into the outlet cube on the wall, or a
+    spare iPad. A quarter shows how small the board is."""
     card = f'<rect x="22" y="30" width="346" height="410" rx="24" fill="{CREAM}" stroke="{INK}" stroke-width="{SW}"/>'
-    top = (nub(66, 98, 2.0, loose=True) + coin(136, 132, 29) +
-           f'<path d="M176,150 q22,-34 52,-30" fill="none" stroke="{INK}" stroke-width="3" stroke-linecap="round"/>'
-           f'<path d="M218,112 l12,8 l-13,7" fill="none" stroke="{INK}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>'
-           + plate(290, 132, 82, 150).replace(f'fill="{CREAM}" stroke="{INK}" stroke-width="{SW}"', f'fill="#EFE6D3" stroke="{INK}" stroke-width="{SW}"', 1)
-           + charger(290, 94, 1.15))
+    top = (board(84, 100, 0.95) + adapter(84, 160, 1.0) + coin(140, 132, 22) +
+           f'<path d="M168,150 q22,-34 52,-30" fill="none" stroke="{INK}" stroke-width="3" stroke-linecap="round"/>'
+           f'<path d="M210,112 l12,8 l-13,7" fill="none" stroke="{INK}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>'
+           + plate(270, 132, 82, 150).replace(f'fill="{CREAM}" stroke="{INK}" stroke-width="{SW}"', f'fill="#EFE6D3" stroke="{INK}" stroke-width="{SW}"', 1)
+           + hub(266, 132, 0.95))
     either = (f'<line x1="52" y1="236" x2="160" y2="236" stroke="#D6CDBA" stroke-width="3" stroke-linecap="round"/>'
               f'<line x1="230" y1="236" x2="338" y2="236" stroke="#D6CDBA" stroke-width="3" stroke-linecap="round"/>'
               f'<text x="195" y="245" text-anchor="middle" {FONT} font-size="26" fill="{INK}" fill-opacity="0.7">or</text>')
-    bottom = puck(140, 336, 58) + coin(270, 360, 29)
+    bottom = tablet(195, 334, 0.78)
     return frame(card + top + either + bottom, floor=False)
 
 
 def scene_nightstand():
-    """The mistake: beacon at the nightstand outlet, in easy reach from bed."""
+    """The mistake: the hub at the nightstand outlet, in easy reach from bed."""
     stand = (f'<rect x="268" y="300" width="104" height="92" rx="6" fill="{Y}" stroke="{INK}" stroke-width="{SW}"/>'
              f'<line x1="278" y1="344" x2="362" y2="344" stroke="{INK}" stroke-width="2.5"/>'
              f'<circle cx="320" cy="322" r="5" fill="{INK}"/><circle cx="320" cy="366" r="5" fill="{INK}"/>')
-    gear = outlet(300, 206, 40, 54) + charger(320, 234, 1.0)
+    gear = outlet(298, 206, 40, 54) + hub(312, 233, 0.62)
     reach = (f'<path d="M222,214 q30,-40 64,-14" fill="none" stroke="{CREAM}" stroke-width="3.5" stroke-dasharray="2 8" stroke-linecap="round"/>'
              f'<path d="M276,192 l12,10 l-15,4" fill="none" stroke="{CREAM}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>')
     return frame(bed_side(-70, mood="sly") + stand + gear + reach + badge(40, 40, False))
 
 
 def scene_under_bed():
-    """The charger and beacon at the outlet under the bed, big."""
-    gear = plate(195, 300, 66, 104) + charger(195, 274, 1.3)
+    """The hub at the outlet under the bed, big."""
+    gear = plate(180, 300, 76, 120) + hub(180, 280, 1.15)
     return frame(under_bed(gear) + badge(40, 40, True))
 
 
-def scene_puck():
-    """The battery puck stuck to the wall under the bed. The mounting strip behind it isn't drawn:
-    a pull tab read as a lollipop stick, and tape read as flimsy. The copy says what to use."""
-    p = puck(195, 262, 50)
-    return frame(under_bed(p) + badge(40, 40, True))
-
-
 def scene_plan():
-    """Top-down plan: beacon on the far side of the room is good, by the door is not."""
+    """Top-down plan: the hub on the far side of the room is good, by the door is not."""
     room = (f'<defs><clipPath id="room"><rect x="34" y="40" width="322" height="318"/></clipPath></defs>'
             f'<rect x="34" y="40" width="322" height="318" fill="{FLOOR}"/>'
             f'<g clip-path="url(#room)"><circle cx="96" cy="58" r="235" fill="{Y}" fill-opacity="0.18"/></g>')
@@ -195,8 +186,8 @@ def scene_plan():
            f'<rect x="132" y="56" width="48" height="30" rx="10" fill="{CREAM}" stroke="{INK}" stroke-width="2.5"/>'
            f'<rect x="190" y="56" width="48" height="30" rx="10" fill="{CREAM}" stroke="{INK}" stroke-width="2.5"/>'
            f'<rect x="120" y="98" width="130" height="124" rx="10" fill="{R}" stroke="{INK}" stroke-width="{SW}"/>')
-    good = nub(86, 60, 1.0) + badge(86, 108, True, r=17)
-    bad = nub(322, 300, 1.0) + badge(322, 258, False, r=17)
+    good = hub(80, 60, 0.42) + badge(86, 108, True, r=17)
+    bad = hub(316, 300, 0.42) + badge(322, 258, False, r=17)
     walls = (f'<path d="M244,358 H34 V40 H356 V358 H310" fill="none" stroke="{CREAM}" stroke-width="12" stroke-linejoin="round"/>'
              f'<path d="M244,358 H34 V40 H356 V358 H310" fill="none" stroke="{INK}" stroke-width="{SW}" stroke-linejoin="round"/>'
              f'<path d="M244,358 A66,66 0 0 1 310,292" fill="none" stroke="{CREAM}" stroke-width="2.5" stroke-dasharray="5 5"/>'
@@ -246,7 +237,6 @@ SCENES = {
     "GuideHardware": scene_hardware,
     "GuideNightstand": scene_nightstand,
     "GuideUnderBed": scene_under_bed,
-    "GuidePuck": scene_puck,
     "GuideFloorPlan": scene_plan,
 }
 
