@@ -9,11 +9,11 @@ out=public/hub/firmware
 bin="$out/bedroom-hub.factory.bin"
 from_ci() {
   command -v gh >/dev/null 2>&1 || return 1
-  run=$(gh run list -R namarks/goodnight-phone --workflow hub-firmware.yml --branch main --status success \
+  run=$(gh run list -R markslabs/goodnight-phone --workflow hub-firmware.yml --branch main --status success \
     --limit 1 --json databaseId --jq '.[0].databaseId' 2>/dev/null) || return 1
   [ -n "$run" ] || return 1
   tmp=$(mktemp -d)
-  gh run download "$run" -R namarks/goodnight-phone -n bedroom-hub-firmware -D "$tmp" || return 1
+  gh run download "$run" -R markslabs/goodnight-phone -n bedroom-hub-firmware -D "$tmp" || return 1
   mv "$tmp/bedroom-hub.factory.bin" "$bin"
 }
 if ! from_ci; then
